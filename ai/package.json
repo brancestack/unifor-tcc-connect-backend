@@ -1,0 +1,17 @@
+{
+  "name": "tcc-web-connect-backend",
+  "version": "1.0.0",
+  "description": "Backend para o sistema de revisão de TCC com integração de IA",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google/genai": "^2.8.0",
+    "dotenv": "^17.4.2"
+  }
+}
