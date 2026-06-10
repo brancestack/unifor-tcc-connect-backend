@@ -1,9 +1,10 @@
-import { GeminiService } from './GeminiService.js';
+// CORREÇÃO: Agora importamos o AIService.js
+import { AIService } from './AIService.js';
 
 async function rodarTesteMultimodal() {
-  const geminiService = new GeminiService();
+  // CORREÇÃO: Instanciamos a classe com o novo nome
+  const aiService = new AIService();
 
-  // Parâmetro 1: O prompt de texto digitado na caixinha da tela
   const promptDoUsuario = `
     Analise o TCC em anexo e faça uma avaliação crítica focando em:
     1. Clareza dos objetivos apresentados.
@@ -11,7 +12,8 @@ async function rodarTesteMultimodal() {
     Deixe sua resposta formatada em tópicos claros.
   `;
   
-  // Parâmetro 2: O caminho do arquivo PDF que queremos analisar
+  // ATENÇÃO: Como o teste vai rodar de dentro de src/ai, ele precisa achar o PDF.
+  // Garanta que existe um arquivo chamado 'teste.pdf' dentro da pasta 'src/ai/'
   const caminhoDoPdf = './teste.pdf'; 
 
   console.log('--- TESTANDO INTEGRAÇÃO MULTIMODAL (TEXTO + PDF) ---');
@@ -20,8 +22,8 @@ async function rodarTesteMultimodal() {
   console.log('Iniciando processamento...');
 
   try {
-    // Chamada do método passando estritamente o prompt e o arquivo
-    const respostaIa = await geminiService.analisarDocumentoComIA(promptDoUsuario, caminhoDoPdf);
+    // CORREÇÃO: Chamamos o método usando o novo objeto aiService
+    const respostaIa = await aiService.analisarDocumentoComIA(promptDoUsuario, caminhoDoPdf);
     
     console.log('\n=== RESULTADO RETORNADO PELA IA ===\n');
     console.log(respostaIa);

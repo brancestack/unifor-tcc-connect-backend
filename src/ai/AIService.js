@@ -3,7 +3,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-export class GeminiService {
+// CORREÇÃO: Nome da classe alterado para AIService
+export class AIService {
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
     this.ai = new GoogleGenAI({ apiKey: apiKey });
@@ -15,7 +16,7 @@ export class GeminiService {
    */
   async analisarDocumentoComIA(promptTexto, caminhoArquivoPdf) {
     try {
-      console.log(`Fazendo upload do PDF (${caminhoArquivoPdf}) para os servidores do Gemini...`);
+      console.log(`1. Fazendo upload do PDF (${caminhoArquivoPdf}) para os servidores do Gemini...`);
       
       const uploadResult = await this.ai.files.upload({
         file: caminhoArquivoPdf,
@@ -23,9 +24,8 @@ export class GeminiService {
       });
 
       console.log(`Upload concluído! URI temporária do arquivo: ${uploadResult.uri}`);
-      console.log('Enviando o prompt junto com o arquivo para análise do modelo...');
+      console.log('2. Enviando o prompt junto com o arquivo para análise do modelo...');
 
-      // CORREÇÃO AQUI: Passamos a referência em formato estruturado que o novo SDK exige
       const response = await this.ai.models.generateContent({
         model: this.modelName,
         contents: [
@@ -35,11 +35,11 @@ export class GeminiService {
               mimeType: uploadResult.mimeType,
             },
           },
-          promptTexto, // O seu texto de comando
+          promptTexto,
         ],
       });
 
-      console.log('Resposta gerada com sucesso.');
+      console.log('3. Resposta gerada com sucesso.');
       return response.text;
 
     } catch (error) {
