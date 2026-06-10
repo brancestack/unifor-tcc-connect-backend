@@ -1,0 +1,51 @@
+const express = require("express")
+const cors = require("cors")
+
+const swaggerUi = require("swagger-ui-express")
+const swaggerJsdoc = require("swagger-jsdoc")
+
+const ticketRoutes = require("./routes/ticketRoutes")
+
+const app = express()
+
+app.use(cors())
+app.use(express.json())
+
+const options = {
+definition: {
+openapi: "3.0.0",
+info: {
+title: "Unifor TCC Connect API",
+version: "1.0.0",
+description: "Sistema de Gestão de Revisões Normativas de TCC"
+},
+servers: [
+{
+url: "http://localhost:3000"
+}
+]
+},
+apis: ["./src/routes/*.js"]
+}
+
+const specs = swaggerJsdoc(options)
+
+app.use(
+"/api-docs",
+swaggerUi.serve,
+swaggerUi.setup(specs)
+)
+
+app.use("/api/tickets", ticketRoutes)
+
+app.get("/", (req, res) => {
+res.json({
+message: "Unifor TCC Connect API"
+})
+})
+
+const PORT = 3000
+
+app.listen(PORT, () => {
+console.log(`Servidor rodando na porta ${PORT}`)
+})
