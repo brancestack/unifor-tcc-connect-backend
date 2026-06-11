@@ -10,6 +10,8 @@ const {
   authorizeRoles
 } = require("../middlewares/authMiddleware")
 
+const upload = require("../middlewares/uploadMiddleware")
+
 router.get(
   "/",
   auth,
@@ -50,6 +52,30 @@ router.post(
   auth,
   authorizeRoles("BIBLIOTECARIO", "ADMIN"),
   ticketController.addFeedback
+)
+
+router.post(
+  "/:id/upload-tcc",
+  auth,
+  authorizeRoles("ALUNO", "ADMIN"),
+  (req, res, next) => {
+    req.uploadTipo = "TCC"
+    next()
+  },
+  upload.single("arquivo"),
+  ticketController.uploadTcc
+)
+
+router.post(
+  "/:id/upload-feedback",
+  auth,
+  authorizeRoles("BIBLIOTECARIO", "ADMIN"),
+  (req, res, next) => {
+    req.uploadTipo = "FEEDBACK"
+    next()
+  },
+  upload.single("arquivo"),
+  ticketController.uploadFeedbackFile
 )
 
 router.delete(

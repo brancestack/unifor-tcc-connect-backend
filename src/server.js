@@ -1,16 +1,23 @@
 const express = require("express")
 const cors = require("cors")
+const path = require("path")
 
 const swaggerUi = require("swagger-ui-express")
 const swaggerJsdoc = require("swagger-jsdoc")
 
 const ticketRoutes = require("./routes/ticketRoutes")
 const authRoutes = require("./routes/authRoutes")
+const dashboardRoutes = require("./routes/dashboardRoutes")
 
 const app = express()
 
 app.use(cors())
 app.use(express.json())
+
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "..", "uploads"))
+)
 
 const options = {
   definition: {
@@ -39,6 +46,7 @@ app.use(
 
 app.use("/api/auth", authRoutes)
 app.use("/api/tickets", ticketRoutes)
+app.use("/api/dashboard", dashboardRoutes)
 
 app.get("/", (req, res) => {
   res.json({
