@@ -1,7 +1,6 @@
 const ticketRepository = require("../repositories/ticketRepository")
 
 class TicketService {
-
   constructor() {
     this.validStatus = [
       "PENDENTE",
@@ -12,12 +11,12 @@ class TicketService {
     ]
   }
 
-  getAllTickets() {
-    return ticketRepository.findAll()
+  async getAllTickets() {
+    return await ticketRepository.findAll()
   }
 
-  getTicketById(id) {
-    const ticket = ticketRepository.findById(id)
+  async getTicketById(id) {
+    const ticket = await ticketRepository.findById(id)
 
     if (!ticket) {
       throw new Error("Ticket não encontrado")
@@ -26,25 +25,24 @@ class TicketService {
     return ticket
   }
 
-  createTicket(data) {
+  async createTicket(data) {
     if (!data.titulo) {
       throw new Error("Título é obrigatório")
     }
 
-    const existingTicket = ticketRepository
-      .findAll()
-      .find(ticket =>
-        ticket.aluno === data.aluno &&
-        ticket.status !== "APROVADO" &&
-        ticket.status !== "FECHADO"
-      )
+    const allTickets = await ticketRepository.findAll()
+
+    const existingTicket = allTickets.find(ticket =>
+      ticket.aluno === data.aluno &&
+      ticket.status !== "APROVADO" &&
+      ticket.status !== "FECHADO"
+    )
 
     if (existingTicket) {
       throw new Error("Aluno já possui um ticket em andamento")
     }
 
     const ticket = {
-      id: Date.now(),
       titulo: data.titulo,
       descricao: data.descricao,
       tema: data.tema,
@@ -55,6 +53,7 @@ class TicketService {
       bibliotecarioResponsavel: null,
       arquivos: [],
       feedbacks: [],
+      mensagens: [],
       historico: [
         {
           status: "PENDENTE",
@@ -64,11 +63,11 @@ class TicketService {
       createdAt: new Date()
     }
 
-    return ticketRepository.create(ticket)
+    return await ticketRepository.create(ticket)
   }
 
-  updateStatus(id, status) {
-    const ticket = ticketRepository.findById(id)
+  async updateStatus(id, status) {
+    const ticket = await ticketRepository.findById(id)
 
     if (!ticket) {
       throw new Error("Ticket não encontrado")
@@ -86,16 +85,21 @@ class TicketService {
       throw new Error("Status inválido")
     }
 
-    ticket.historico.push({
+    const historico = ticket.historico || []
+
+    historico.push({
       status,
       data: new Date()
     })
 
-    return ticketRepository.update(id, { status })
+    return await ticketRepository.update(id, {
+      status,
+      historico
+    })
   }
 
-  assignBibliotecario(id, bibliotecario) {
-    const ticket = ticketRepository.findById(id)
+  async assignBibliotecario(id, bibliotecario) {
+    const ticket = await ticketRepository.findById(id)
 
     if (!ticket) {
       throw new Error("Ticket não encontrado")
@@ -105,13 +109,23 @@ class TicketService {
       throw new Error("Bibliotecário é obrigatório")
     }
 
-    return ticketRepository.update(id, {
-      bibliotecarioResponsavel: bibliotecario
+    const historico = ticket.historico || []
+
+    historico.push({
+      acao: "ATRIBUICAO_BIBLIOTECARIO",
+      bibliotecarioAnterior: ticket.bibliotecarioResponsavel || null,
+      bibliotecarioNovo: bibliotecario,
+      data: new Date()
+    })
+
+    return await ticketRepository.update(id, {
+      bibliotecarioResponsavel: bibliotecario,
+      historico
     })
   }
 
-  addFeedback(id, data) {
-    const ticket = ticketRepository.findById(id)
+  async addFeedback(id, data) {
+    const ticket = await ticketRepository.findById(id)
 
     if (!ticket) {
       throw new Error("Ticket não encontrado")
@@ -129,6 +143,8 @@ class TicketService {
       throw new Error("Comentário é obrigatório")
     }
 
+    const feedbacks = ticket.feedbacks || []
+
     const feedback = {
       id: Date.now(),
       bibliotecario: data.bibliotecario,
@@ -136,15 +152,18 @@ class TicketService {
       createdAt: new Date()
     }
 
-    ticket.feedbacks.push(feedback)
+    feedbacks.push(feedback)
 
-    ticket.versao += 1
+    await ticketRepository.update(id, {
+      feedbacks,
+      versao: (ticket.versao || 1) + 1
+    })
 
     return feedback
   }
 
-  uploadTccFile(id, file) {
-    const ticket = ticketRepository.findById(id)
+  async uploadTccFile(id, file) {
+    const ticket = await ticketRepository.findById(id)
 
     if (!ticket) {
       throw new Error("Ticket não encontrado")
@@ -158,8 +177,10 @@ class TicketService {
       throw new Error("Não é possível enviar arquivo para ticket fechado")
     }
 
+    const arquivos = ticket.arquivos || []
+
     const versaoArquivo =
-      ticket.arquivos.filter(arquivo => arquivo.tipo === "TCC").length + 1
+      arquivos.filter(arquivo => arquivo.tipo === "TCC").length + 1
 
     const arquivo = {
       id: Date.now(),
@@ -172,14 +193,18 @@ class TicketService {
       uploadedAt: new Date()
     }
 
-    ticket.arquivos.push(arquivo)
-    ticket.versao = versaoArquivo
+    arquivos.push(arquivo)
+
+    await ticketRepository.update(id, {
+      arquivos,
+      versao: versaoArquivo
+    })
 
     return arquivo
   }
 
-  uploadFeedbackFile(id, file, data) {
-    const ticket = ticketRepository.findById(id)
+  async uploadFeedbackFile(id, file, data) {
+    const ticket = await ticketRepository.findById(id)
 
     if (!ticket) {
       throw new Error("Ticket não encontrado")
@@ -193,8 +218,11 @@ class TicketService {
       throw new Error("Não é possível enviar feedback para ticket fechado")
     }
 
+    const arquivos = ticket.arquivos || []
+    const feedbacks = ticket.feedbacks || []
+
     const versaoArquivo =
-      ticket.arquivos.filter(arquivo => arquivo.tipo === "FEEDBACK").length + 1
+      arquivos.filter(arquivo => arquivo.tipo === "FEEDBACK").length + 1
 
     const arquivo = {
       id: Date.now(),
@@ -209,10 +237,10 @@ class TicketService {
       uploadedAt: new Date()
     }
 
-    ticket.arquivos.push(arquivo)
+    arquivos.push(arquivo)
 
     if (data.comentario || data.bibliotecario) {
-      ticket.feedbacks.push({
+      feedbacks.push({
         id: Date.now() + 1,
         bibliotecario: data.bibliotecario || "Bibliotecário",
         comentario: data.comentario || "Arquivo de feedback enviado.",
@@ -221,11 +249,16 @@ class TicketService {
       })
     }
 
+    await ticketRepository.update(id, {
+      arquivos,
+      feedbacks
+    })
+
     return arquivo
   }
 
-  deleteTicket(id) {
-    const deleted = ticketRepository.delete(id)
+  async deleteTicket(id) {
+    const deleted = await ticketRepository.delete(id)
 
     if (!deleted) {
       throw new Error("Ticket não encontrado")
