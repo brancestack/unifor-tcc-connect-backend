@@ -1,15 +1,75 @@
+const jwt = require("jsonwebtoken")
+
+const JWT_SECRET =
+  process.env.JWT_SECRET ||
+  "unifor_tcc_connect_secret"
+
 function auth(req, res, next) {
-  /*
-    Middleware reservado para autenticação JWT.
 
-    Futuramente:
-    1. Ler o token do header Authorization
-    2. Validar com jsonwebtoken
-    3. Adicionar o usuário em req.user
-    4. Liberar a rota com next()
-  */
+  const authHeader =
+    req.headers.authorization
 
-  return next()
+  if (!authHeader) {
+    return res.status(401).json({
+      message: "Token não informado"
+    })
+  }
+
+  const parts = authHeader.split(" ")
+
+  if (parts.length !== 2) {
+    return res.status(401).json({
+      message: "Token mal formatado"
+    })
+  }
+
+  const [scheme, token] = parts
+
+  if (!/^Bearer$/i.test(scheme)) {
+    return res.status(401).json({
+      message: "Formato de token inválido"
+    })
+  }
+
+  try {
+
+    const decoded =
+      jwt.verify(token, JWT_SECRET)
+
+    req.user = decoded
+
+    return next()
+
+  } catch (error) {
+
+    return res.status(401).json({
+      message: "Token inválido ou expirado"
+    })
+
+  }
 }
 
-module.exports = auth
+function authorizeRoles(...roles) {
+
+  return (req, res, next) => {
+
+    if (!req.user) {
+      return res.status(401).json({
+        message: "Usuário não autenticado"
+      })
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        message: "Acesso negado para este perfil"
+      })
+    }
+
+    return next()
+  }
+}
+
+module.exports = {
+  auth,
+  authorizeRoles
+}
