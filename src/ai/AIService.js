@@ -1,30 +1,27 @@
-import { GoogleGenAI } from '@google/genai';
-import dotenv from 'dotenv';
+const { GoogleGenAI } = require("@google/genai")
+require("dotenv").config()
 
-dotenv.config();
-
-// CORREÇÃO: Nome da classe alterado para AIService
-export class AIService {
+class AIService {
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    this.ai = new GoogleGenAI({ apiKey: apiKey });
-    this.modelName = 'gemini-2.5-flash'; 
+    const apiKey = process.env.GEMINI_API_KEY
+
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY não configurada no .env")
+    }
+
+    this.ai = new GoogleGenAI({
+      apiKey
+    })
+
+    this.modelName = "gemini-2.5-flash"
   }
 
-  /**
-   * Método principal: Recebe o comando do bibliotecário e o caminho local de um PDF.
-   */
   async analisarDocumentoComIA(promptTexto, caminhoArquivoPdf) {
     try {
-      console.log(`1. Fazendo upload do PDF (${caminhoArquivoPdf}) para os servidores do Gemini...`);
-      
       const uploadResult = await this.ai.files.upload({
         file: caminhoArquivoPdf,
-        mimeType: 'application/pdf',
-      });
-
-      console.log(`Upload concluído! URI temporária do arquivo: ${uploadResult.uri}`);
-      console.log('2. Enviando o prompt junto com o arquivo para análise do modelo...');
+        mimeType: "application/pdf"
+      })
 
       const response = await this.ai.models.generateContent({
         model: this.modelName,
@@ -32,19 +29,38 @@ export class AIService {
           {
             fileData: {
               fileUri: uploadResult.uri,
-              mimeType: uploadResult.mimeType,
-            },
+              mimeType: uploadResult.mimeType
+            }
           },
-          promptTexto,
-        ],
-      });
+          promptTexto
+        ]
+      })
 
-      console.log('3. Resposta gerada com sucesso.');
-      return response.text;
-
+      return response.text
     } catch (error) {
-      console.error('Erro na integração multimodal do Gemini:', error);
-      throw new Error('Falha ao processar arquivo e texto na IA: ' + error.message);
+      console.error("Erro na integração multimodal do Gemini:", error)
+
+      if (
+        error.message.includes("503") ||
+        error.message.includes("UNAVAILABLE")
+      ) {
+        return `
+Análise temporariamente indisponível devido à alta demanda do Gemini.
+
+Sugestões simuladas para revisão:
+1. Verificar se o sumário segue a estrutura exigida pela ABNT.
+2. Conferir se as referências estão padronizadas.
+3. Revisar margens, espaçamento e fonte.
+4. Confirmar se citações diretas e indiretas estão formatadas corretamente.
+5. Validar capa, folha de rosto e elementos pré-textuais.
+`
+      }
+
+      throw new Error(
+        "Falha ao processar arquivo e texto na IA: " + error.message
+      )
     }
   }
 }
+
+module.exports = new AIService()

@@ -2,7 +2,7 @@ const express = require("express")
 const cors = require("cors")
 const path = require("path")
 const chatRoutes = require("./routes/chatRoutes")
-
+const aiRoutes = require("./routes/aiRoutes")
 const swaggerUi = require("swagger-ui-express")
 const swaggerJsdoc = require("swagger-jsdoc")
 
@@ -51,6 +51,7 @@ app.use("/api/tickets", ticketRoutes)
 app.use("/api/dashboard", dashboardRoutes)
 app.use("/api/users", userRoutes)
 app.use("/api/chat", chatRoutes)
+app.use("/api/ai", aiRoutes)
 
 app.get("/", (req, res) => {
   res.json({
