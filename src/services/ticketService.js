@@ -5,6 +5,7 @@ class TicketService {
   constructor() {
     this.validStatus = [
       "PENDENTE",
+      "EM_REVISAO", // Adicionado para bater com o enum do seu Schema
       "EM_CORRECAO",
       "AJUSTES_NECESSARIOS",
       "APROVADO",
@@ -12,14 +13,14 @@ class TicketService {
     ]
   }
 
-  getAllTickets() {
-    return ticketRepository.findAll()
+  // Adicionado async
+  async getAllTickets() {
+    return await ticketRepository.findAll()
   }
 
-  getTicketById(id) {
-
-    const ticket =
-      ticketRepository.findById(id)
+  // Adicionado async/await e correção de retorno
+  async getTicketById(id) {
+    const ticket = await ticketRepository.findById(id)
 
     if (!ticket) {
       throw new Error("Ticket não encontrado")
@@ -28,170 +29,112 @@ class TicketService {
     return ticket
   }
 
-  createTicket(data) {
-
+  // Reformulado para validar contra o banco de dados real
+  async createTicket(data) {
     if (!data.titulo) {
       throw new Error("Título é obrigatório")
     }
 
-    const existingTicket =
-      ticketRepository
-        .findAll()
-        .find(ticket =>
-          ticket.aluno === data.aluno &&
-          ticket.status !== "APROVADO" &&
-          ticket.status !== "FECHADO"
-        )
+    const allTickets = await ticketRepository.findAll()
+    const existingTicket = allTickets.find(ticket =>
+      ticket.aluno === data.aluno &&
+      ticket.status !== "APROVADO" &&
+      ticket.status !== "FECHADO"
+    )
 
     if (existingTicket) {
-      throw new Error(
-        "Aluno já possui um ticket em andamento"
-      )
+      throw new Error("Aluno já possui um ticket em andamento")
     }
 
-    const ticket = {
-      id: Date.now(),
-
+    // Passa apenas os campos limpos; o ID e as datas o MySQL gera sozinho
+    return await ticketRepository.create({
       titulo: data.titulo,
       descricao: data.descricao,
-
       tema: data.tema,
       curso: data.curso,
-
       aluno: data.aluno,
-
       status: "PENDENTE",
-
-      versao: 1,
-
-      bibliotecarioResponsavel: null,
-
-      feedbacks: [],
-
-      historico: [
-        {
-          status: "PENDENTE",
-          data: new Date()
-        }
-      ],
-
-      createdAt: new Date()
-    }
-
-    return ticketRepository.create(ticket)
+      versao: 1
+    })
   }
 
-  updateStatus(id, status) {
-
-  const ticket =
-    ticketRepository.findById(id)
-
-  if (!ticket) {
-    throw new Error("Ticket não encontrado")
-  }
-
-  if (ticket.status === "FECHADO") {
-    throw new Error(
-      "Ticket fechado não pode ser alterado"
-    )
-  }
-
-  if (ticket.status === status) {
-    throw new Error(
-      "Ticket já está neste status"
-    )
-  }
-
-  if (!this.validStatus.includes(status)) {
-    throw new Error("Status inválido")
-  }
-
-  ticket.historico.push({
-    status,
-    data: new Date()
-  })
-
-  return ticketRepository.update(
-    id,
-    { status }
-  )
-}
-
-  assignBibliotecario(id, bibliotecario) {
-
-    const ticket =
-      ticketRepository.findById(id)
-
-    if (!ticket) {
-      throw new Error("Ticket não encontrado")
-    }
-
-    if (!bibliotecario) {
-      throw new Error(
-        "Bibliotecário é obrigatório"
-      )
-    }
-
-    return ticketRepository.update(
-      id,
-      {
-        bibliotecarioResponsavel:
-          bibliotecario
-      }
-    )
-  }
-
-  addFeedback(id, data) {
-
-    const ticket =
-      ticketRepository.findById(id)
+  // Atualizado para persistir o histórico diretamente no banco de dados
+  async updateStatus(id, status) {
+    const ticket = await ticketRepository.findById(id)
 
     if (!ticket) {
       throw new Error("Ticket não encontrado")
     }
 
     if (ticket.status === "FECHADO") {
-      throw new Error(
-        "Não é possível adicionar feedback em ticket fechado"
-      )
+      throw new Error("Ticket fechado não pode ser alterado")
     }
 
-    if (!data.bibliotecario) {
-      throw new Error(
-        "Bibliotecário é obrigatório"
-      )
+    if (ticket.status === status) {
+      throw new Error("Ticket já está neste status")
     }
 
-    if (!data.comentario) {
-      throw new Error(
-        "Comentário é obrigatório"
-      )
+    if (!this.validStatus.includes(status)) {
+      throw new Error("Status inválido")
     }
 
-    const feedback = {
-      id: Date.now(),
-      bibliotecario: data.bibliotecario,
-      comentario: data.comentario,
-      createdAt: new Date()
-    }
-
-    ticket.feedbacks.push(feedback)
-
-    ticket.versao += 1
-
-    return feedback
+    // Atualiza o status e cria o registro de histórico de forma atômica
+    return await ticketRepository.updateStatusWithHistory(id, status)
   }
 
-  deleteTicket(id) {
+  // Atualizado para salvar o responsável de forma assíncrona
+  async assignBibliotecario(id, bibliotecario) {
+    const ticket = await ticketRepository.findById(id)
 
-    const deleted =
-      ticketRepository.delete(id)
-
-    if (!deleted) {
+    if (!ticket) {
       throw new Error("Ticket não encontrado")
     }
 
-    return true
+    if (!bibliotecario) {
+      throw new Error("Bibliotecário é obrigatório")
+    }
+
+    return await ticketRepository.update(id, {
+      bibliotecarioResponsavel: bibliotecario
+    })
+  }
+
+  // Atualizado para persistir o feedback e atualizar a versão de forma relacional
+  async addFeedback(id, data) {
+    const ticket = await ticketRepository.findById(id)
+
+    if (!ticket) {
+      throw new Error("Ticket não encontrado")
+    }
+
+    if (ticket.status === "FECHADO") {
+      throw new Error("Não é possível adicionar feedback em ticket fechado")
+    }
+
+    if (!data.bibliotecario) {
+      throw new Error("Bibliotecário é obrigatório")
+    }
+
+    if (!data.comentario) {
+      throw new Error("Comentário é obrigatório")
+    }
+
+    // Cria o feedback e incrementa a versão do ticket (+1) diretamente
+    return await ticketRepository.createFeedbackAndUpdateVersion(id, {
+      bibliotecario: data.bibliotecario,
+      comentario: data.comentario,
+      novaVersao: ticket.versao + 1
+    })
+  }
+
+  // Adicionado async/await
+  async deleteTicket(id) {
+    try {
+      await ticketRepository.delete(id)
+      return true
+    } catch (error) {
+      throw new Error("Ticket não encontrado")
+    }
   }
 }
 
