@@ -1,14 +1,11 @@
 datasource db {
   provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
 }
-
-// ==========================================
-// 1. ENUMS (PERFIS, STATUS E CONTROLES)
-// ==========================================
 
 enum Role {
   ALUNO
@@ -30,10 +27,6 @@ enum StatusTicket {
   FECHADO
 }
 
-// ==========================================
-// 2. MODELOS DE TABELAS
-// ==========================================
-
 model Usuario {
   id        Int           @id @default(autoincrement())
   nome      String
@@ -46,7 +39,7 @@ model Usuario {
   status    StatusUsuario @default(ATIVO)
   createdAt DateTime      @default(now())
 
-  ticketsComoAluno        Ticket[] @relation("TicketsDoAluno")
+  ticketsComoAluno         Ticket[] @relation("TicketsDoAluno")
   ticketsComoBibliotecario Ticket[] @relation("TicketsDoBibliotecario")
 
   @@map("usuarios")
@@ -64,13 +57,13 @@ model Ticket {
   bibliotecarioResponsavel String?
   dataAtribuicao           DateTime?
   createdAt                DateTime     @default(now())
-  
+
   alunoId                  Int?
   bibliotecarioId          Int?
 
   alunoRel                 Usuario?     @relation("TicketsDoAluno", fields: [alunoId], references: [id], onDelete: SetNull)
   bibliotecarioRel         Usuario?     @relation("TicketsDoBibliotecario", fields: [bibliotecarioId], references: [id], onDelete: SetNull)
-  
+
   feedbacks                Feedback[]
   historico                HistoricoStatus[]
   historicoArquivos        HistoricoTicket[]
@@ -83,6 +76,7 @@ model Feedback {
   ticketId      Int
   bibliotecario String
   comentario    String   @db.Text
+  arquivoUrl    String?
   createdAt     DateTime @default(now())
 
   ticket        Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
@@ -104,7 +98,11 @@ model HistoricoStatus {
 model HistoricoTicket {
   id          Int      @id @default(autoincrement())
   versao      Int
+  tipo        String?
   nomeArquivo String
+  nomeOriginal String?
+  caminho     String?
+  url         String?
   observacoes String?  @db.Text
   ticketId    Int
   createdAt   DateTime @default(now())

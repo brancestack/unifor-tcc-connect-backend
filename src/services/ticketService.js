@@ -4,6 +4,7 @@ class TicketService {
   constructor() {
     this.validStatus = [
       "PENDENTE",
+      "EM_REVISAO",
       "EM_CORRECAO",
       "AJUSTES_NECESSARIOS",
       "APROVADO",
@@ -50,17 +51,7 @@ class TicketService {
       aluno: data.aluno,
       status: "PENDENTE",
       versao: 1,
-      bibliotecarioResponsavel: null,
-      arquivos: [],
-      feedbacks: [],
-      mensagens: [],
-      historico: [
-        {
-          status: "PENDENTE",
-          data: new Date()
-        }
-      ],
-      createdAt: new Date()
+      bibliotecarioResponsavel: null
     }
 
     return await ticketRepository.create(ticket)
@@ -85,17 +76,10 @@ class TicketService {
       throw new Error("Status inválido")
     }
 
-    const historico = ticket.historico || []
-
-    historico.push({
-      status,
-      data: new Date()
-    })
-
-    return await ticketRepository.update(id, {
-      status,
-      historico
-    })
+    return await ticketRepository.updateStatusWithHistory(
+      id,
+      status
+    )
   }
 
   async assignBibliotecario(id, bibliotecario) {
@@ -109,18 +93,9 @@ class TicketService {
       throw new Error("Bibliotecário é obrigatório")
     }
 
-    const historico = ticket.historico || []
-
-    historico.push({
-      acao: "ATRIBUICAO_BIBLIOTECARIO",
-      bibliotecarioAnterior: ticket.bibliotecarioResponsavel || null,
-      bibliotecarioNovo: bibliotecario,
-      data: new Date()
-    })
-
     return await ticketRepository.update(id, {
       bibliotecarioResponsavel: bibliotecario,
-      historico
+      dataAtribuicao: new Date()
     })
   }
 
@@ -143,23 +118,12 @@ class TicketService {
       throw new Error("Comentário é obrigatório")
     }
 
-    const feedbacks = ticket.feedbacks || []
-
-    const feedback = {
-      id: Date.now(),
+    return await ticketRepository.createFeedbackAndUpdateVersion(id, {
       bibliotecario: data.bibliotecario,
       comentario: data.comentario,
-      createdAt: new Date()
-    }
-
-    feedbacks.push(feedback)
-
-    await ticketRepository.update(id, {
-      feedbacks,
-      versao: (ticket.versao || 1) + 1
+      arquivoUrl: null,
+      novaVersao: (ticket.versao || 1) + 1
     })
-
-    return feedback
   }
 
   async uploadTccFile(id, file) {
@@ -177,13 +141,12 @@ class TicketService {
       throw new Error("Não é possível enviar arquivo para ticket fechado")
     }
 
-    const arquivos = ticket.arquivos || []
+    const arquivos = ticket.historicoArquivos || []
 
     const versaoArquivo =
       arquivos.filter(arquivo => arquivo.tipo === "TCC").length + 1
 
     const arquivo = {
-      id: Date.now(),
       tipo: "TCC",
       versao: versaoArquivo,
       nomeOriginal: file.originalname,
@@ -193,10 +156,9 @@ class TicketService {
       uploadedAt: new Date()
     }
 
-    arquivos.push(arquivo)
+    await ticketRepository.createArquivoHistorico(id, arquivo)
 
     await ticketRepository.update(id, {
-      arquivos,
       versao: versaoArquivo
     })
 
@@ -218,14 +180,12 @@ class TicketService {
       throw new Error("Não é possível enviar feedback para ticket fechado")
     }
 
-    const arquivos = ticket.arquivos || []
-    const feedbacks = ticket.feedbacks || []
+    const arquivos = ticket.historicoArquivos || []
 
     const versaoArquivo =
       arquivos.filter(arquivo => arquivo.tipo === "FEEDBACK").length + 1
 
     const arquivo = {
-      id: Date.now(),
       tipo: "FEEDBACK",
       versao: versaoArquivo,
       bibliotecario: data.bibliotecario || null,
@@ -237,24 +197,23 @@ class TicketService {
       uploadedAt: new Date()
     }
 
-    arquivos.push(arquivo)
+    await ticketRepository.createArquivoHistorico(id, arquivo)
+
+    let feedback = null
 
     if (data.comentario || data.bibliotecario) {
-      feedbacks.push({
-        id: Date.now() + 1,
+      feedback = await ticketRepository.createFeedbackAndUpdateVersion(id, {
         bibliotecario: data.bibliotecario || "Bibliotecário",
         comentario: data.comentario || "Arquivo de feedback enviado.",
         arquivoUrl: arquivo.url,
-        createdAt: new Date()
+        novaVersao: ticket.versao || 1
       })
     }
 
-    await ticketRepository.update(id, {
-      arquivos,
-      feedbacks
-    })
-
-    return arquivo
+    return {
+      ...arquivo,
+      feedback
+    }
   }
 
   async deleteTicket(id) {

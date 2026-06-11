@@ -1,26 +1,35 @@
 // src/repositories/ticketRepository.js
-const prisma = require('../../prisma.config');
+
+const { PrismaClient } = require("@prisma/client")
+
+const prisma = new PrismaClient()
 
 class TicketRepository {
-  
+
   async findAll() {
     return await prisma.ticket.findMany({
       include: {
         feedbacks: true,
-        historico: true
+        historico: true,
+        historicoArquivos: true
       },
-      orderBy: { createdAt: 'desc' }
-    });
+      orderBy: {
+        createdAt: "desc"
+      }
+    })
   }
 
   async findById(id) {
     return await prisma.ticket.findUnique({
-      where: { id: Number(id) },
+      where: {
+        id: Number(id)
+      },
       include: {
         feedbacks: true,
-        historico: true
+        historico: true,
+        historicoArquivos: true
       }
-    });
+    })
   }
 
   async create(ticketData) {
@@ -33,7 +42,9 @@ class TicketRepository {
         aluno: ticketData.aluno,
         status: ticketData.status,
         versao: ticketData.versao,
-        // Cria automaticamente o histórico inicial na tabela 'historico_status'
+        bibliotecarioResponsavel:
+          ticketData.bibliotecarioResponsavel || null,
+
         historico: {
           create: {
             status: ticketData.status
@@ -42,28 +53,34 @@ class TicketRepository {
       },
       include: {
         feedbacks: true,
-        historico: true
+        historico: true,
+        historicoArquivos: true
       }
-    });
+    })
   }
 
   async update(id, cleanData) {
     return await prisma.ticket.update({
-      where: { id: Number(id) },
+      where: {
+        id: Number(id)
+      },
       data: cleanData,
       include: {
         feedbacks: true,
-        historico: true
+        historico: true,
+        historicoArquivos: true
       }
-    });
+    })
   }
 
-  // Método específico para atualizar Status e gerar o histórico na tabela simultaneamente
   async updateStatusWithHistory(id, novoStatus) {
     return await prisma.ticket.update({
-      where: { id: Number(id) },
+      where: {
+        id: Number(id)
+      },
       data: {
         status: novoStatus,
+
         historico: {
           create: {
             status: novoStatus
@@ -72,36 +89,70 @@ class TicketRepository {
       },
       include: {
         feedbacks: true,
-        historico: true
+        historico: true,
+        historicoArquivos: true
       }
-    });
+    })
   }
 
-  // Método específico para adicionar feedback e subir a versão do ticket no banco
-  async createFeedbackAndUpdateVersion(id, { bibliotecario, comentario, novaVersao }) {
-    return await prisma.feedback.create({
+  async createArquivoHistorico(id, arquivo) {
+    return await prisma.historicoTicket.create({
+      data: {
+        ticketId: Number(id),
+        versao: arquivo.versao,
+        tipo: arquivo.tipo,
+        nomeArquivo: arquivo.nomeArquivo,
+        nomeOriginal: arquivo.nomeOriginal || null,
+        caminho: arquivo.caminho || null,
+        url: arquivo.url || null,
+        observacoes: arquivo.comentario || null
+      }
+    })
+  }
+
+  async createFeedbackAndUpdateVersion(
+    id,
+    {
+      bibliotecario,
+      comentario,
+      arquivoUrl,
+      novaVersao
+    }
+  ) {
+
+    const feedback = await prisma.feedback.create({
       data: {
         bibliotecario,
         comentario,
+        arquivoUrl: arquivoUrl || null,
+
         ticket: {
-          connect: { id: Number(id) }
+          connect: {
+            id: Number(id)
+          }
         }
       }
-    }).then(async (feedback) => {
-      // Sincroniza e incrementa a versão do Ticket pai
-      await prisma.ticket.update({
-        where: { id: Number(id) },
-        data: { versao: novaVersao }
-      });
-      return feedback;
-    });
+    })
+
+    await prisma.ticket.update({
+      where: {
+        id: Number(id)
+      },
+      data: {
+        versao: novaVersao
+      }
+    })
+
+    return feedback
   }
 
   async delete(id) {
     return await prisma.ticket.delete({
-      where: { id: Number(id) }
-    });
+      where: {
+        id: Number(id)
+      }
+    })
   }
 }
 
-module.exports = new TicketRepository();
+module.exports = new TicketRepository()
