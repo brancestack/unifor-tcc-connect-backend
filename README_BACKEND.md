@@ -26,6 +26,19 @@ A arquitetura foi organizada em camadas para facilitar manutenção, testes e fu
 
 Estrutura:
 
+ai/
+
+├── node_modules
+
+└── .env
+
+└── GeminiService.js
+
+└── testar.js (pode ser retirado)
+
+└── teste.pdf (pode ser retirado)
+
+
 src/
 
 ├── controllers/
